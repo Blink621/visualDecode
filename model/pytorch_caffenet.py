@@ -82,7 +82,7 @@ class KitModel(nn.Module):
             self.feature = eval(self.feature_name + '_1')
         else:
             self.feature = eval(self.feature_name)
-        return fc8_1
+        return self.feature
 
 
     @staticmethod

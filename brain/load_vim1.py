@@ -65,22 +65,45 @@ def load_stimuli(path, load_hirez=True, npx=500, npc=1):
 
 
 
-def load_voxels(path, subject, voxel_subset=None):
-    voxelset = h5py.File(path+"EstimatedResponses.mat")
-
+def load_voxels(path, subject, ROI='all', voxel_subset=None):
+    """
+    Parameters:
+    -----------
+    ROI[str/list]:
+        default is str, 'all' means using all the ROIs
+        when using list, its elements should be names of ROI in
+        'other, 'V1', 'V2', 'V3', 'V3A', 'V3B', 'V4', 'LO'
+    """
+    voxelset = h5py.File(path+"EstimatedResponses.mat", 'r')
+    ROI_all = {'other':0, 'V1':1, 'V2':2, 'V3':3, 'V3A':4, 'V3B':5, 'V4':6, 'LO':7}
+    
     voxeldata = np.concatenate([voxelset['dataTrn%s'%subject], voxelset['dataVal%s'%subject]], axis=0).astype(dtype=np.float32)
-    voxelroi = voxelset['roi%s'%subject]
-    voxelidx = voxelset['voxIdx%s'%subject]
-
+    voxelroi = np.array(voxelset['roi%s'%subject]).flatten()
+    voxelidx = np.array(voxelset['voxIdx%s'%subject]).flatten()
+    
     voxelNanMask = ~np.isnan(voxeldata).any(axis=0)
-    nv = np.sum(voxelNanMask)
-    print(f'{nv} voxels contain valid values for all images')
-
-    voxel_data = voxeldata[:, voxelNanMask].astype(dtype=np.float32)
-    voxelROI  = voxelroi[:, voxelNanMask]
-    voxelIDX  = voxelidx[:, voxelNanMask]
-
+    roiMask = True
+    if ROI != 'all':
+        roiMask = False
+        for roi in ROI:
+            roiMask = roiMask | (voxelroi==ROI_all[roi])
+    Mask = voxelNanMask & roiMask
+    nv = np.sum(Mask)
+    print(f'{nv} voxels are selected, including:')
+    Mask = Mask.tolist()
+    
+    voxel_data = voxeldata[:, Mask].astype(dtype=np.float32)
+    voxelROI  = voxelroi[Mask]
+    voxelIDX  = voxelidx[Mask]
+    
+    roi_info = f''
+    for roi in ROI_all.keys():
+        num = np.sum(voxelROI==ROI_all[roi])
+        if num != 0:
+            roi_info += f'{roi}:{num} voxels\n'
+    print(roi_info)
+    
     if voxel_subset is not None:
         voxel_data = voxel_data[:, voxel_subset]
 
-    return voxel_data, voxelROI, voxelIDX
+    return voxel_data, voxelIDX
